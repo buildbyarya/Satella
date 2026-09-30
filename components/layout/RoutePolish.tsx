@@ -7,6 +7,8 @@ import WatchTogetherEnhancements from "@/components/watch/WatchTogetherEnhanceme
 function ChatSeenOverlay() {
   useEffect(() => {
     let stopped = false
+    const main = document.querySelector("main") as HTMLElement | null
+    if (main) main.style.backgroundAttachment = "fixed"
     async function apply() {
       const [messagesRes, seenRes] = await Promise.all([
         fetch("/api/chat", { cache: "no-store" }),
@@ -46,6 +48,8 @@ function CalendarBackground() {
   ]
 
   useEffect(() => {
+    const main = document.querySelector("main") as HTMLElement | null
+    if (main) { main.style.background = "transparent"; main.style.backgroundImage = "none" }
     fetch("/api/calendar", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(d => { if (d?.background) setBackground(d.background) }).catch(() => {})
   }, [])
 

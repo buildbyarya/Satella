@@ -1,15 +1,12 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { useSearchParams } from "next/navigation"
 
 type Playlist = { id: string; name: string; videos: string[] }
-
 type Room = { videoId: string; otherPresent: boolean }
 
 export default function WatchTogetherEnhancements() {
-  const params = useSearchParams()
-  const roomId = params.get("roomId") || ""
+  const [roomId, setRoomId] = useState("")
   const [room, setRoom] = useState<Room | null>(null)
   const [liked, setLiked] = useState(false)
   const [watchLater, setWatchLater] = useState(false)
@@ -18,6 +15,11 @@ export default function WatchTogetherEnhancements() {
   const [saving, setSaving] = useState<string | null>(null)
   const [unread, setUnread] = useState(0)
   const lastChatCount = useRef<number | null>(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setRoomId(params.get("roomId") || "")
+  }, [])
 
   function chatScroller(): HTMLElement | null {
     const heading = Array.from(document.querySelectorAll<HTMLElement>("*")).find(el => el.textContent?.trim() === "💬 Watch Together Chat")
@@ -34,15 +36,16 @@ export default function WatchTogetherEnhancements() {
       fetch(`/api/youtube/watch-together?roomId=${encodeURIComponent(roomId)}&chat=1`, { cache: "no-store" }),
     ])
 
+    let currentVideoId = room?.videoId || ""
     if (roomRes.ok) {
       const d = await roomRes.json()
+      currentVideoId = d?.room?.videoId || currentVideoId
       setRoom(d.room || null)
     }
     if (sourcesRes.ok) {
       const d = await sourcesRes.json()
-      const current = room?.videoId || d?.room?.videoId
-      setLiked(Boolean(current && (d.liked || []).some((v: any) => v.id === current)))
-      setWatchLater(Boolean(current && (d.watchLater || []).some((v: any) => v.id === current)))
+      setLiked(Boolean(currentVideoId && (d.liked || []).some((v: any) => v.id === currentVideoId)))
+      setWatchLater(Boolean(currentVideoId && (d.watchLater || []).some((v: any) => v.id === currentVideoId)))
     }
     if (playlistsRes.ok) setPlaylists(await playlistsRes.json())
     if (chatRes.ok) {

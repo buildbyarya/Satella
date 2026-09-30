@@ -11,11 +11,14 @@ export default function NotificationsBell(){
  async function load(){
   const r=await fetch("/api/notifications",{cache:"no-store"});if(!r.ok)return
   const d=await r.json();setA(d.notifications||[]);setEvents(d.events||[])
-  const history=getToastHistory()
-  const recent=(d.notifications||[]).map((x:any)=>({...x,type:"invite"})).filter((x:any)=>!x.createdAt||Date.now()-Date.parse(x.createdAt)<60*60*1000)
-  const shown=new Set(history.map((x:any)=>x.id))
+  const history=getToastHistory();const shown=new Set(history.map((x:any)=>x.id))
+  const recent=[...(d.notifications||[]).map((x:any)=>({...x,type:"invite"})),...(d.events||[]).filter((x:any)=>x.kind==="chat")]
+    .filter((x:any)=>!x.createdAt||Date.now()-Date.parse(x.createdAt)<60*60*1000)
   const fresh=recent.filter((x:any)=>!shown.has(x.id))
-  if(fresh.length&&history.length<3){setToast(fresh[0]);rememberToast(fresh[0].id)}
+  if(fresh.length&&history.length<3){
+   const item=fresh[0];setToast(item);rememberToast(item.id)
+   if(item.type!=="invite"&&item.kind==="chat")setTimeout(()=>setToast((current:any)=>current?.id===item.id?null:current),9000)
+  }
  }
  useEffect(()=>{void load();const t=setInterval(load,1500);return()=>clearInterval(t)},[])
  async function respond(id:string,x:string,msg?:string){
@@ -26,8 +29,9 @@ export default function NotificationsBell(){
   if(x==="accept"&&d.roomId)router.push("/watch/youtube/watch-together?roomId="+encodeURIComponent(d.roomId))
  }
  function startReply(id:string){setToast(null);setOpen(false);setReply({id,text:""})}
+ function openEvent(event:any){if(event.kind==="chat"){setOpen(false);router.push("/chat/messages")}}
  return <div className="relative">
-  <button onClick={()=>setOpen(v=>!v)} className="rounded-xl px-2 py-1 text-xl transition hover:bg-white/10" aria-label="Notifications">🔔{a.length>0&&<span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full bg-red-500"/>}</button>
+  <button onClick={()=>setOpen(v=>!v)} className="rounded-xl px-2 py-1 text-xl transition hover:bg-white/10" aria-label="Notifications">🔔{(a.length>0||events.length>0)&&<span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full bg-red-500"/>}</button>
   {toast&&typeof document!=="undefined"&&createPortal(
     <div className="fixed left-1/2 top-4 z-[1000] w-[calc(100vw-24px)] max-w-sm -translate-x-1/2 rounded-2xl border border-white/10 bg-zinc-950/95 p-4 shadow-2xl backdrop-blur-xl">
       <p className="text-center text-sm font-medium leading-5">{toast.text}</p>
@@ -43,6 +47,6 @@ export default function NotificationsBell(){
     document.body
   )}
   {reply&&<div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4"><div className="w-full max-w-sm rounded-3xl border border-white/10 bg-zinc-950 p-5 shadow-2xl"><p className="font-medium">Reply to Watch Together invitation</p><input autoFocus value={reply.text} onChange={e=>setReply({...reply,text:e.target.value})} onKeyDown={e=>e.key==="Enter"&&reply.text.trim()&&void respond(reply.id,"reply",reply.text.trim())} placeholder="Write a message… 😀" className="mt-4 w-full rounded-xl bg-black/40 px-3 py-3 text-sm outline-none"/><div className="mt-3 flex gap-2"><button onClick={()=>setReply(null)} className="flex-1 rounded-xl bg-white/10 py-3">Cancel</button><button disabled={!reply.text.trim()} onClick={()=>void respond(reply.id,"reply",reply.text.trim())} className="flex-1 rounded-xl bg-white/10 py-3 disabled:opacity-40">Send</button></div></div></div>}
-  {open&&<div className="absolute right-0 top-12 z-[70] w-80 rounded-2xl border border-white/10 bg-zinc-950 p-3 shadow-2xl">{a.length===0&&events.length===0?<p className="p-3 text-sm text-white/50">No new notifications.</p>:<>{a.map(i=><div key={i.id} className="mb-2 rounded-xl bg-white/5 p-3"><p className="text-sm">{i.text}</p>{i.customMessage&&<p className="mt-1 text-xs text-white/50">💬 {i.customMessage}</p>}<div className="mt-2 flex gap-2"><button onClick={()=>void respond(i.id,"accept")} className="flex-1 rounded-lg bg-white/10 px-2 py-1 text-sm">Accept</button><button onClick={()=>void respond(i.id,"decline")} className="flex-1 rounded-lg bg-white/10 px-2 py-1 text-sm">Decline</button><button onClick={()=>startReply(i.id)} className="flex-1 rounded-lg bg-white/10 px-2 py-1 text-sm">💬 Reply</button></div></div>)}{events.map(i=><div key={i.id} className="mb-2 rounded-xl bg-white/5 p-3 text-sm">{i.text}</div>)}</>}</div>}
+  {open&&<div className="absolute right-0 top-12 z-[70] w-80 rounded-2xl border border-white/10 bg-zinc-950 p-3 shadow-2xl">{a.length===0&&events.length===0?<p className="p-3 text-sm text-white/50">No new notifications.</p>:<>{a.map(i=><div key={i.id} className="mb-2 rounded-xl bg-white/5 p-3"><p className="text-sm">{i.text}</p>{i.customMessage&&<p className="mt-1 text-xs text-white/50">💬 {i.customMessage}</p>}<div className="mt-2 flex gap-2"><button onClick={()=>void respond(i.id,"accept")} className="flex-1 rounded-lg bg-white/10 px-2 py-1 text-sm">Accept</button><button onClick={()=>void respond(i.id,"decline")} className="flex-1 rounded-lg bg-white/10 px-2 py-1 text-sm">Decline</button><button onClick={()=>startReply(i.id)} className="flex-1 rounded-lg bg-white/10 px-2 py-1 text-sm">💬 Reply</button></div></div>)}{events.map(i=><button key={i.id} onClick={()=>openEvent(i)} className="mb-2 block w-full rounded-xl bg-white/5 p-3 text-left text-sm hover:bg-white/10">{i.text}</button>)}</>}</div>}
  </div>
 }

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import TopBar from "../TopBar"
 import Drawer from "../drawer/Drawer"
 import NotificationsBell from "@/components/home/NotificationsBell"
+import RoutePolish from "@/components/layout/RoutePolish"
 
 export default function AppShell({
   children,
@@ -38,6 +39,7 @@ export default function AppShell({
         </>
       )}
       <div className={showSiteHeader ? "" : "pt-12"}>{children}</div>
+      <RoutePolish />
     </>
   )
 }

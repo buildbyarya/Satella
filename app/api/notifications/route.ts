@@ -20,7 +20,7 @@ export async function GET(){
   if(!room.leftAt)continue
   const msg=await prisma.chatMessage.findFirst({where:{homeId:home!.homeId,senderId:partner!.userId,createdAt:{gt:room.leftAt}},orderBy:{createdAt:"desc"}})
   if(msg&&msg.createdAt.getTime()-room.leftAt.getTime()<=120000){
-   chatAfterLeave.push({id:"chat-after-leave-"+msg.id,text:(partner!.nickname||partner!.user.nickname||partner!.user.name||"Your partner")+" sent a message in Chat",kind:"chat",chatMessageId:msg.id,createdAt:msg.createdAt.toISOString()})
+   chatAfterLeave.push({id:"chat-after-leave-"+msg.id,text:(partner!.nickname||"Your partner")+" sent a message in Chat",kind:"chat",chatMessageId:msg.id,createdAt:msg.createdAt.toISOString()})
   }
  }
  return NextResponse.json({

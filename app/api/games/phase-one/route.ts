@@ -1,0 +1,66 @@
+import { getServerSession } from "next-auth"
+import { NextResponse } from "next/server"
+import { authOptions } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+
+const GAMES = new Set(["tictactoe","connect4","rps","reaction","quick-math","button-smash","target-tap","coin-duel","high-low","color-clash"])
+
+async function ctx(){
+  const s=await getServerSession(authOptions)
+  if(!s?.user?.email)return null
+  const u=await prisma.user.findUnique({where:{email:s.user.email}})
+  if(!u)return null
+  const m=await prisma.homeMember.findUnique({where:{userId:u.id},include:{home:{include:{members:true}}}})
+  return m?{u,homeId:m.homeId,members:m.home.members}:null
+}
+function player(c:any){return [...c.members].sort((a:any,b:any)=>a.joinedAt.getTime()-b.joinedAt.getTime()).findIndex((m:any)=>m.userId===c.u.id)===0?"A":"B"}
+function fresh(g:string){
+  if(g==="tictactoe")return {board:Array(9).fill(null),turn:"A",winner:null,draw:false}
+  if(g==="connect4")return {board:Array(42).fill(null),turn:"A",winner:null,draw:false}
+  if(g==="rps")return {choices:{A:null,B:null},result:null}
+  if(g==="reaction")return {status:"idle",signalAt:null,winner:null}
+  if(g==="quick-math"){const a=1+Math.floor(Math.random()*12),b=1+Math.floor(Math.random()*12);return {a,b,answer:a+b,winner:null}}
+  if(g==="button-smash")return {scores:{A:0,B:0},winner:null,target:20}
+  if(g==="target-tap")return {target:Math.floor(Math.random()*9),scores:{A:0,B:0},winner:null}
+  if(g==="coin-duel")return {choices:{A:null,B:null},result:null,winner:null}
+  if(g==="high-low")return {number:1+Math.floor(Math.random()*100),choices:{A:null,B:null},winner:null}
+  return {word:["RED","BLUE","GREEN","YELLOW"][Math.floor(Math.random()*4)],choices:{A:null,B:null},winner:null}
+}
+function lineWinner(b:any[],lines:number[][]){for(const l of lines)if(l.every(i=>b[i])){const v=b[l[0]];if(l.every(i=>b[i]===v))return v}return null}
+function connectWinner(b:any[]){
+  for(let r=0;r<6;r++)for(let c=0;c<7;c++){const i=r*7+c;if(!b[i])continue;for(const [dr,dc] of [[0,1],[1,0],[1,1],[1,-1]]){const cells=[0,1,2,3].map(k=>{const rr=r+dr*k,cc=c+dc*k;return rr>=0&&rr<6&&cc>=0&&cc<7?rr*7+cc:-1});if(cells.every(x=>x>=0)&&cells.every(x=>b[x]===b[i]))return b[i]}}return null
+}
+function nextMath(){const a=1+Math.floor(Math.random()*12),b=1+Math.floor(Math.random()*12);return {a,b,answer:a+b,winner:null}}
+function nextColor(){return {word:["RED","BLUE","GREEN","YELLOW"][Math.floor(Math.random()*4)],choices:{A:null,B:null},winner:null}}
+
+export async function GET(req:Request){
+  const c=await ctx();if(!c)return NextResponse.json({error:"Unauthorized"},{status:401})
+  const g=new URL(req.url).searchParams.get("game")||""
+  if(!GAMES.has(g))return NextResponse.json({error:"Unknown game"},{status:400})
+  const row=await prisma.drawingSwapGame.upsert({where:{homeId:c.homeId},create:{homeId:c.homeId},update:{}})
+  const all=row.gameState?JSON.parse(row.gameState):{}
+  let state=all[g]??fresh(g)
+  if(g==="reaction"&&state.status==="waiting"&&state.signalAt&&Date.now()>=state.signalAt)state={...state,status:"ready"}
+  return NextResponse.json({game:g,state,side:player(c),members:c.members.length})
+}
+export async function POST(req:Request){
+  const c=await ctx();if(!c)return NextResponse.json({error:"Unauthorized"},{status:401})
+  const {game,action,payload={}}=await req.json();if(!GAMES.has(game))return NextResponse.json({error:"Unknown game"},{status:400})
+  const row=await prisma.drawingSwapGame.upsert({where:{homeId:c.homeId},create:{homeId:c.homeId},update:{}})
+  const all=row.gameState?JSON.parse(row.gameState):{};const me=player(c);let s=all[game]??fresh(game)
+  if(action==="reset")s=fresh(game)
+  else if(game==="tictactoe"&&action==="move"&&s.turn===me&&s.board[payload.index]==null&&!s.winner&&!s.draw){s.board[payload.index]=me;s.winner=lineWinner(s.board,[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]);s.draw=!s.winner&&s.board.every(Boolean);if(!s.winner&&!s.draw)s.turn=me==="A"?"B":"A"}
+  else if(game==="connect4"&&action==="drop"&&s.turn===me&&!s.winner&&!s.draw){const col=Number(payload.col);if(col>=0&&col<7){for(let r=5;r>=0;r--){const i=r*7+col;if(!s.board[i]){s.board[i]=me;break}}s.winner=connectWinner(s.board);s.draw=!s.winner&&s.board.every(Boolean);if(!s.winner&&!s.draw)s.turn=me==="A"?"B":"A"}}
+  else if(game==="rps"&&action==="choose"&&!s.result){s.choices[me]=payload.choice;if(s.choices.A&&s.choices.B){const a=s.choices.A,b=s.choices.B;s.result=a===b?"DRAW":((a==="rock"&&b==="scissors")||(a==="paper"&&b==="rock")||(a==="scissors"&&b==="paper")?"A":"B")}}
+  else if(game==="reaction"&&action==="start"&&s.status==="idle")s={status:"waiting",signalAt:Date.now()+2000+Math.floor(Math.random()*2500),winner:null}
+  else if(game==="reaction"&&action==="react"&&s.status==="ready"&&!s.winner)s={...s,status:"done",winner:me}
+  else if(game==="quick-math"&&action==="answer"&&!s.winner){if(Number(payload.answer)===s.answer)s.winner=me}
+  else if(game==="button-smash"&&action==="tap"&&!s.winner){s.scores[me]++;if(s.scores[me]>=s.target)s.winner=me}
+  else if(game==="target-tap"&&action==="tap"&&!s.winner&&Number(payload.target)===s.target){s.scores[me]++;if(s.scores[me]>=5)s.winner=me;else s.target=Math.floor(Math.random()*9)}
+  else if(game==="coin-duel"&&action==="choose"&&!s.result){s.choices[me]=payload.choice;if(s.choices.A&&s.choices.B){s.result=Math.random()<.5?"heads":"tails";s.winner=s.choices.A===s.result?"A":"B"}}
+  else if(game==="high-low"&&action==="choose"&&!s.winner){s.choices[me]=payload.choice;if(s.choices.A&&s.choices.B){const actual=s.number>=50?"HIGH":"LOW";s.winner=s.choices.A===actual&&s.choices.B!==actual?"A":s.choices.B===actual&&s.choices.A!==actual?"B":"DRAW"}}
+  else if(game==="color-clash"&&action==="choose"&&!s.winner){s.choices[me]=payload.choice;if(s.choices.A&&s.choices.B){s.winner=s.choices.A===s.word&&s.choices.B!==s.word?"A":s.choices.B===s.word&&s.choices.A!==s.word?"B":"DRAW"}}
+  all[game]=s
+  await prisma.drawingSwapGame.update({where:{id:row.id},data:{gameState:JSON.stringify(all)}})
+  return NextResponse.json({game,state:s})
+}

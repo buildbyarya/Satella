@@ -1,7 +1,13 @@
-import Link from "next/link"
 import PageHeader from "@/components/common/PageHeader"
+import GamesHub from "@/components/games/GamesHub"
 
-const phaseOne=[
- ["tictactoe","❌⭕","Tic-Tac-Toe","Classic 3×3 strategy"],["connect4","🔴🟡","Connect Four","Drop four in a row"],["rps","✊✋✌️","Rock Paper Scissors","Best the partner"],["reaction","⚡","Reaction Duel","Tap when the signal appears"],["quick-math","➕","Quick Math Duel","Solve before your partner"],["button-smash","🔨","Button Smash","First to 20 taps"],["target-tap","🎯","Target Tap","Hit the target five times"],["coin-duel","🪙","Coin Duel","Heads or tails"],["high-low","📈","High / Low","Read the hidden result"],["color-clash","🎨","Color Clash","Pick the named colour"]
-]
-export default function GamesPage(){return <main className="min-h-screen bg-gradient-to-br from-purple-950 via-black to-pink-950 p-6 text-white"><div className="mx-auto max-w-2xl"><PageHeader title="🎮 Games" backHref="/home"/><div className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-4"><div className="text-xs uppercase tracking-widest text-pink-300/70">Phase 1 · Easy</div><h2 className="mt-1 text-xl font-bold">Quick two-player challenges</h2><p className="mt-1 text-sm text-white/45">Open the same game on both devices. Satella syncs the match through your shared Home.</p><div className="mt-4 grid gap-3 sm:grid-cols-2">{phaseOne.map(([id,emoji,name,desc])=><Link key={id} href={`/games/phase-one/${id}`} className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/10"><div className="text-2xl">{emoji}</div><div className="mt-2 font-semibold">{name}</div><div className="mt-1 text-sm text-white/40">{desc}</div></Link>)}</div></div><Link href="/games/drawing-swap" className="mt-4 block rounded-2xl bg-white/5 p-4"><div className="font-semibold">🎨 Drawing Swap</div><div className="mt-1 text-sm text-white/40">Our bigger roadmap game remains available separately.</div></Link></div></main>}
+export default function GamesPage() {
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-purple-950 via-black to-pink-950 p-4 text-white sm:p-6">
+      <div className="mx-auto max-w-3xl">
+        <PageHeader title="🎮 Games" backHref="/home" />
+        <div className="mt-4"><GamesHub /></div>
+      </div>
+    </main>
+  )
+}

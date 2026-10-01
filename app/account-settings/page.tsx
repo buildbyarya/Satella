@@ -1,13 +1,23 @@
 "use client"
 import PageHeader from "@/components/common/PageHeader"
+import {signOut} from "next-auth/react"
 import {useEffect,useState} from "react"
 
 export default function AccountSettingsPage(){
- const [image,setImage]=useState(""),[name,setName]=useState(""),[email,setEmail]=useState(""),[saving,setSaving]=useState(false),[message,setMessage]=useState("")
+ const [image,setImage]=useState(""),[name,setName]=useState(""),[email,setEmail]=useState(""),[saving,setSaving]=useState(false),[message,setMessage]=useState(""),[deleteOpen,setDeleteOpen]=useState(false),[deleting,setDeleting]=useState(false)
  useEffect(()=>{fetch("/api/account/profile",{cache:"no-store"}).then(r=>r.json()).then(d=>{if(d.user){setImage(d.user.image||"");setName(d.user.nickname||d.user.name||"");setEmail(d.user.email||"")}})},[])
  async function upload(file:File){
   if(file.size>3_300_000){setMessage("Please choose an image under 3.3 MB.");return}
   const reader=new FileReader();reader.onload=async()=>{setSaving(true);setMessage("");const r=await fetch("/api/account/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image:String(reader.result)})});const d=await r.json();setMessage(r.ok?"Profile picture updated.":d.error||"Could not update picture.");setSaving(false)};reader.readAsDataURL(file)
+ }
+ async function deleteAccount(){
+  setDeleting(true);setMessage("")
+  try{
+   const r=await fetch("/api/account/delete",{method:"DELETE"})
+   const d=await r.json().catch(()=>({}))
+   if(!r.ok){setMessage(d.error||"Could not delete account.");setDeleting(false);return}
+   await signOut({callbackUrl:"/"})
+  }catch{setMessage("Could not delete account. Please try again.");setDeleting(false)}
  }
  return <main className="min-h-screen bg-gradient-to-br from-purple-950 via-black to-pink-950 p-6 text-white"><div className="mx-auto max-w-md"><PageHeader title="⚙ Account Settings" backHref="/home"/>
   <div className="mt-6 rounded-3xl bg-white/10 p-6">
@@ -17,5 +27,24 @@ export default function AccountSettingsPage(){
    <div className="mt-6 space-y-2 text-sm"><div className="rounded-xl bg-black/20 p-3"><span className="text-white/40">Name</span><div>{name||"Not set"}</div></div><div className="rounded-xl bg-black/20 p-3"><span className="text-white/40">Email</span><div>{email}</div></div></div>
    {message&&<p className="mt-4 text-center text-sm text-white/60">{message}</p>}
   </div>
+
+  <section className="mt-5 rounded-3xl border border-red-400/20 bg-red-950/20 p-5">
+   <h2 className="font-semibold text-red-200">Danger zone</h2>
+   <p className="mt-2 text-sm text-white/60">Permanently delete this Satella account and the personal data attached to it. This cannot be undone.</p>
+   <button type="button" onClick={()=>setDeleteOpen(true)} className="mt-4 w-full rounded-xl border border-red-400/30 bg-red-500/15 px-4 py-3 font-semibold text-red-200">Delete account</button>
+  </section>
+
+  {deleteOpen&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-5">
+   <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-zinc-950 p-6 shadow-2xl">
+    <div className="text-2xl">⚠️</div>
+    <h2 className="mt-3 text-xl font-bold">Delete this account?</h2>
+    <p className="mt-2 text-sm leading-6 text-white/65">This permanently removes your Satella login and your personal account data. Your shared Home itself is not deleted; Home deletion remains a separate mutual-confirmation action.</p>
+    <p className="mt-3 text-sm font-semibold text-red-200">This action cannot be undone.</p>
+    <div className="mt-6 flex gap-3">
+     <button type="button" disabled={deleting} onClick={()=>setDeleteOpen(false)} className="flex-1 rounded-xl bg-white/10 px-4 py-3 font-semibold">Cancel</button>
+     <button type="button" disabled={deleting} onClick={()=>void deleteAccount()} className="flex-1 rounded-xl bg-red-600 px-4 py-3 font-semibold">{deleting?"Deleting…":"Yes, delete"}</button>
+    </div>
+   </div>
+  </div>}
  </div></main>
 }

@@ -5,8 +5,8 @@ export const dynamic = "force-dynamic"
 
 export default function SharedNotesPage() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-950 via-black to-pink-950 p-6 text-white">
-      <div className="mx-auto max-w-2xl">
+    <main className="min-h-screen bg-gradient-to-br from-purple-950 via-black to-pink-950 px-2 py-4 text-white sm:px-4">
+      <div className="mx-auto w-full max-w-7xl">
         <PageHeader title="🤝 Shared Notes" backHref="/notes" />
         <NotesClientPage mode="shared" title="Shared Notes" />
       </div>

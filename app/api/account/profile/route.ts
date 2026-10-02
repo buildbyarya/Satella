@@ -21,3 +21,15 @@ export async function POST(req:Request){
   const user=await prisma.user.update({where:{email:session.user.email},data:{image},select:{id:true,image:true,nickname:true,name:true,email:true}})
   return NextResponse.json({user})
 }
+
+export async function DELETE(){
+  const session=await getServerSession(authOptions)
+  const email=session?.user?.email
+  if(!email)return NextResponse.json({error:"Unauthorized"},{status:401})
+
+  const user=await prisma.user.findUnique({where:{email},select:{id:true}})
+  if(!user)return NextResponse.json({error:"Account not found"},{status:404})
+
+  await prisma.user.delete({where:{id:user.id}})
+  return NextResponse.json({ok:true})
+}

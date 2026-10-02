@@ -153,7 +153,7 @@ export default function ChatMessages(){
  const pinned=useMemo(()=>messages.filter(m=>m.pinned),[messages])
  const pageBackground=setting?.backgroundImage?{backgroundImage:"url("+setting.backgroundImage+")",backgroundSize:"cover",backgroundPosition:"center"}:{background:setting?.background||"linear-gradient(135deg,#160b2e,#050505,#2a0a22)"}
 
- return <main className="h-[calc(100dvh-3rem)] min-h-0 overflow-hidden text-white" style={pageBackground}>
+ return <main className="fixed inset-x-0 top-12 bottom-0 z-10 min-h-0 overflow-hidden text-white" style={pageBackground}>
   <div className="h-full min-h-0 bg-black/35"><div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col">
    <header className="fixed left-0 right-0 top-12 z-40 border-b border-white/10 bg-black/70 px-3 py-2 backdrop-blur-xl">
     <div className="flex items-center gap-2">
@@ -170,7 +170,7 @@ export default function ChatMessages(){
 
    {showPinned&&<div className="border-b border-white/10 bg-black/45 p-3"><div className="mb-2 text-sm font-semibold">Pinned messages</div>{pinned.length?<div className="space-y-1.5">{pinned.map(m=><button key={m.id} onClick={()=>jump(m.id)} className="block w-full rounded-xl bg-white/10 p-2 text-left text-sm">{textFromHtml(m.content).slice(0,120)}</button>)}</div>:<div className="text-sm text-white/40">Nothing pinned yet.</div>}</div>}
 
-   <div ref={list} data-chat-scroll-container="true" onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-32 sm:px-4"><div className="space-y-2.5">
+   <div ref={list} data-chat-scroll-container="true" onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto px-2 pb-40 pt-32 sm:px-4"><div className="space-y-2.5">
     {messages.map(m=>{
       const own=m.senderId===currentUserId,bubble=m.style?.bubbleColor||(own?pref.bubbleColor:"#27272a"),dotsColor=contrastColor(bubble),match=search?results.some(x=>x.m.id===m.id):false
       return <div id={"msg-"+m.id} data-chat-message="true" key={m.id} className={"flex "+(own?"justify-end":"justify-start")+" "+(match?"rounded-xl ring-1 ring-yellow-300/40":"")}>
@@ -197,7 +197,7 @@ export default function ChatMessages(){
     })}
    </div></div>
 
-   <div className="sticky bottom-0 z-30 border-t border-white/10 bg-black/65 p-2.5 backdrop-blur-xl">
+   <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-black/65 p-2.5 backdrop-blur-xl">
     {reply&&<div className="mb-2 flex items-center gap-2 rounded-xl bg-white/10 p-2 text-xs"><button onClick={()=>jump(reply.id)} className="min-w-0 flex-1 text-left"><b>Replying to {reply.senderName}</b><div className="truncate opacity-55">{textFromHtml(reply.content)}</div></button><button onClick={()=>setReply(null)}>×</button></div>}
     {editing&&<div className="mb-2 flex items-center justify-between rounded-xl bg-pink-500/10 px-3 py-2 text-xs">Editing message<button onClick={()=>{setEditing(null);clearEditor()}}>Cancel</button></div>}
     {showFormat&&<div className="mb-2 rounded-2xl bg-zinc-50 p-2 text-black shadow-xl"><div className="flex flex-wrap gap-1">

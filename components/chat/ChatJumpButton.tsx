@@ -3,7 +3,17 @@
 import { useEffect, useRef, useState } from "react"
 
 function getList() {
-  return document.querySelector("main .flex-1.overflow-y-auto") as HTMLElement | null
+  return document.querySelector('[data-chat-scroll-container="true"]') as HTMLElement | null
+}
+
+function getMetrics(list: HTMLElement) {
+  const distance = Math.max(0, list.scrollHeight - list.scrollTop - list.clientHeight)
+  const items = Array.from(list.querySelectorAll("[data-chat-message=\"true\"]")) as HTMLElement[]
+  const viewportBottom = list.scrollTop + list.clientHeight
+  const belowCount = items.filter((item) => item.offsetTop + item.offsetHeight > viewportBottom + 8).length
+  const requiredBelow = Math.min(10, items.length)
+  const farEnough = distance > 220 && belowCount >= requiredBelow
+  return { distance, farEnough }
 }
 
 export default function ChatJumpButton() {
@@ -29,9 +39,8 @@ export default function ChatJumpButton() {
   async function refresh() {
     const list = getList()
     if (list) {
-      const distance = list.scrollHeight - list.scrollTop - list.clientHeight
-      const far = distance > 450
-      setFarFromBottom(far)
+      const { distance, farEnough } = getMetrics(list)
+      setFarFromBottom(farEnough)
       if (distance < 24) {
         await markRead()
         return
@@ -46,24 +55,26 @@ export default function ChatJumpButton() {
   }
 
   useEffect(() => {
-    const timer = window.setInterval(() => void refresh(), 1000)
-    const attach = window.setTimeout(() => {
-      const list = getList()
+    let list: HTMLElement | null = null
+    let attachTimer: number | null = null
+
+    const onScroll = () => void refresh()
+
+    const attach = () => {
+      list = getList()
       if (!list) return
-      const onScroll = () => {
-        const distance = list.scrollHeight - list.scrollTop - list.clientHeight
-        setFarFromBottom(distance > 450)
-        if (distance < 24) void markRead()
-      }
       list.addEventListener("scroll", onScroll, { passive: true })
       onScroll()
-      return () => list.removeEventListener("scroll", onScroll)
-    }, 300)
+    }
 
+    attachTimer = window.setTimeout(attach, 80)
+    const timer = window.setInterval(() => void refresh(), 1000)
     void refresh()
+
     return () => {
+      if (attachTimer !== null) window.clearTimeout(attachTimer)
       window.clearInterval(timer)
-      window.clearTimeout(attach)
+      list?.removeEventListener("scroll", onScroll)
     }
   }, [])
 
@@ -73,11 +84,13 @@ export default function ChatJumpButton() {
     <button
       onClick={() => {
         const list = getList()
-        if (list) list.scrollTo({ top: list.scrollHeight, behavior: "smooth" })
+        if (list) {
+          list.scrollTo({ top: list.scrollHeight, behavior: "smooth" })
+        }
         void markRead()
         setFarFromBottom(false)
       }}
-      className="fixed bottom-24 right-4 z-[45] flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-zinc-950/90 text-xl shadow-2xl backdrop-blur-xl transition hover:scale-105 active:scale-95"
+      className="fixed bottom-36 right-4 z-[80] flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-zinc-950/95 text-xl shadow-2xl backdrop-blur-xl transition hover:scale-105 active:scale-95"
       aria-label="Go to latest message"
       title="Go to latest message"
     >

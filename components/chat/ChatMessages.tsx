@@ -30,7 +30,7 @@ export default function ChatMessages(){
  const [openingMedia,setOpeningMedia]=useState<string|null>(null)
  const [mediaView,setMediaView]=useState<{kind:string;data:string;mime:string}|null>(null)
  const [backgroundImage,setBackgroundImage]=useState(""),[sharedSaving,setSharedSaving]=useState(false)
- const editor=useRef<HTMLDivElement>(null),list=useRef<HTMLDivElement>(null),recorder=useRef<MediaRecorder|null>(null),chunks=useRef<Blob[]>([]),savedRange=useRef<Range|null>(null),stickToBottom=useRef(true)
+ const editor=useRef<HTMLDivElement>(null),list=useRef<HTMLDivElement>(null),recorder=useRef<MediaRecorder|null>(null),chunks=useRef<Blob[]>([]),savedRange=useRef<Range|null>(null),stickToBottom=useRef(true),initialScrollDone=useRef(false)
 
  async function load(){
    const r=await fetch("/api/chat",{cache:"no-store"});if(!r.ok)return
@@ -154,7 +154,7 @@ export default function ChatMessages(){
  const pageBackground=setting?.backgroundImage?{backgroundImage:"url("+setting.backgroundImage+")",backgroundSize:"cover",backgroundPosition:"center"}:{background:setting?.background||"linear-gradient(135deg,#160b2e,#050505,#2a0a22)"}
 
  return <main className="min-h-screen text-white" style={pageBackground}>
-  <div className="min-h-screen bg-black/35"><div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col">
+  <div className="min-h-screen bg-black/35"><div className="mx-auto flex h-[100dvh] min-h-0 w-full max-w-3xl flex-col">
    <header className="fixed left-0 right-0 top-12 z-40 border-b border-white/10 bg-black/70 px-3 py-2 backdrop-blur-xl">
     <div className="flex items-center gap-2">
      <a href="/home" className="rounded-xl bg-white/10 px-3 py-2">‹</a><div className="min-w-0 flex-1"><div className="font-bold">💬 Our Chat</div><div className="text-[11px] text-white/45">Shared space</div></div>
@@ -170,10 +170,10 @@ export default function ChatMessages(){
 
    {showPinned&&<div className="border-b border-white/10 bg-black/45 p-3"><div className="mb-2 text-sm font-semibold">Pinned messages</div>{pinned.length?<div className="space-y-1.5">{pinned.map(m=><button key={m.id} onClick={()=>jump(m.id)} className="block w-full rounded-xl bg-white/10 p-2 text-left text-sm">{textFromHtml(m.content).slice(0,120)}</button>)}</div>:<div className="text-sm text-white/40">Nothing pinned yet.</div>}</div>}
 
-   <div ref={list} onScroll={handleScroll} className="flex-1 overflow-y-auto px-2 pb-3 pt-32 sm:px-4"><div className="space-y-2.5">
+   <div ref={list} data-chat-scroll-container="true" onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto px-2 pb-3 pt-32 sm:px-4"><div className="space-y-2.5">
     {messages.map(m=>{
       const own=m.senderId===currentUserId,bubble=m.style?.bubbleColor||(own?pref.bubbleColor:"#27272a"),dotsColor=contrastColor(bubble),match=search?results.some(x=>x.m.id===m.id):false
-      return <div id={"msg-"+m.id} key={m.id} className={"flex "+(own?"justify-end":"justify-start")+" "+(match?"rounded-xl ring-1 ring-yellow-300/40":"")}>
+      return <div id={"msg-"+m.id} data-chat-message="true" key={m.id} className={"flex "+(own?"justify-end":"justify-start")+" "+(match?"rounded-xl ring-1 ring-yellow-300/40":"")}>
        <div className="relative max-w-[84%] sm:max-w-[72%]">
         {!own&&<div className="mb-0.5 px-2 text-[11px] font-semibold text-pink-200">{m.senderName}</div>}
         <div className="relative rounded-2xl px-3 py-2 shadow-lg" style={{background:bubble,color:m.style?.textColor||"#fff",fontSize:m.style?.fontSize||16,fontFamily:m.style?.fontFamily||"system-ui"}}>

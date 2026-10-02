@@ -4,39 +4,6 @@ import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import WatchTogetherEnhancements from "@/components/watch/WatchTogetherEnhancements"
 
-function ChatSeenOverlay() {
-  useEffect(() => {
-    let stopped = false
-    const main = document.querySelector("main") as HTMLElement | null
-    if (main) main.style.backgroundAttachment = "fixed"
-    async function apply() {
-      const [messagesRes, seenRes] = await Promise.all([
-        fetch("/api/chat", { cache: "no-store" }),
-        fetch("/api/chat/seen", { cache: "no-store" }),
-      ])
-      if (!messagesRes.ok || !seenRes.ok || stopped) return
-      const messages = await messagesRes.json()
-      const seen = await seenRes.json()
-      const seenAt = seen.seenAt ? Date.parse(seen.seenAt) : 0
-      for (const message of messages.messages || []) {
-        const host = document.getElementById("msg-" + message.id)
-        if (!host) continue
-        host.querySelectorAll("[data-satella-seen]").forEach(node => node.remove())
-        if (message.senderId !== messages.userId || !seenAt || Date.parse(message.createdAt) > seenAt) continue
-        const label = document.createElement("span")
-        label.dataset.satellaSeen = "1"
-        label.textContent = "Seen " + new Date(seenAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        label.style.cssText = "display:block;text-align:right;margin:2px 6px 0;font-size:10px;line-height:14px;opacity:.55"
-        host.appendChild(label)
-      }
-    }
-    void apply()
-    const timer = setInterval(() => void apply(), 1800)
-    return () => { stopped = true; clearInterval(timer) }
-  }, [])
-  return null
-}
-
 function CalendarBackground() {
   const [background, setBackground] = useState<string>("")
   const [open, setOpen] = useState(false)
@@ -85,7 +52,6 @@ function CalendarBackground() {
 export default function RoutePolish() {
   const pathname = usePathname()
   if (pathname === "/calendar") return <CalendarBackground />
-  if (pathname === "/chat/messages") return <ChatSeenOverlay />
   if (pathname.includes("/watch/youtube/watch-together")) return <WatchTogetherEnhancements />
   return null
 }

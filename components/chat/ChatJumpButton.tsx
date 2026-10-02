@@ -90,7 +90,7 @@ export default function ChatJumpButton() {
         void markRead()
         setFarFromBottom(false)
       }}
-      className="fixed bottom-36 right-4 z-[80] flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-zinc-950/95 text-xl shadow-2xl backdrop-blur-xl transition hover:scale-105 active:scale-95"
+      className="fixed bottom-28 right-5 z-[80] flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-zinc-950/95 text-xl shadow-2xl backdrop-blur-xl transition hover:scale-105 active:scale-95"
       aria-label="Go to latest message"
       title="Go to latest message"
     >

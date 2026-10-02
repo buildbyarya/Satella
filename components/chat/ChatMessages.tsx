@@ -153,8 +153,8 @@ export default function ChatMessages(){
  const pinned=useMemo(()=>messages.filter(m=>m.pinned),[messages])
  const pageBackground=setting?.backgroundImage?{backgroundImage:"url("+setting.backgroundImage+")",backgroundSize:"cover",backgroundPosition:"center"}:{background:setting?.background||"linear-gradient(135deg,#160b2e,#050505,#2a0a22)"}
 
- return <main className="min-h-screen text-white" style={pageBackground}>
-  <div className="min-h-screen bg-black/35"><div className="mx-auto flex h-[100dvh] min-h-0 w-full max-w-3xl flex-col">
+ return <main className="h-[calc(100dvh-3rem)] min-h-0 overflow-hidden text-white" style={pageBackground}>
+  <div className="h-full min-h-0 bg-black/35"><div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col">
    <header className="fixed left-0 right-0 top-12 z-40 border-b border-white/10 bg-black/70 px-3 py-2 backdrop-blur-xl">
     <div className="flex items-center gap-2">
      <a href="/home" className="rounded-xl bg-white/10 px-3 py-2">‹</a><div className="min-w-0 flex-1"><div className="font-bold">💬 Our Chat</div><div className="text-[11px] text-white/45">Shared space</div></div>

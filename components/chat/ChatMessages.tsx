@@ -26,11 +26,11 @@ export default function ChatMessages(){
  const [reply,setReply]=useState<Message|null>(null),[editing,setEditing]=useState<Message|null>(null)
  const [searchDraft,setSearchDraft]=useState(""),[search,setSearch]=useState(""),[searchIndex,setSearchIndex]=useState(0),[showSearch,setShowSearch]=useState(false)
  const [showPinned,setShowPinned]=useState(false),[showSettings,setShowSettings]=useState(false),[showFormat,setShowFormat]=useState(false)
- const [sending,setSending]=useState(false),[recording,setRecording]=useState(false),[menuId,setMenuId]=useState<string|null>(null)
+ const [sending,setSending]=useState(false),[recording,setRecording]=useState(false),[menuId,setMenuId]=useState<string|null>(null),[composerHeight,setComposerHeight]=useState(112)
  const [openingMedia,setOpeningMedia]=useState<string|null>(null)
  const [mediaView,setMediaView]=useState<{kind:string;data:string;mime:string}|null>(null)
  const [backgroundImage,setBackgroundImage]=useState(""),[sharedSaving,setSharedSaving]=useState(false)
- const editor=useRef<HTMLDivElement>(null),list=useRef<HTMLDivElement>(null),recorder=useRef<MediaRecorder|null>(null),chunks=useRef<Blob[]>([]),savedRange=useRef<Range|null>(null),stickToBottom=useRef(true),initialScrollDone=useRef(false)
+ const editor=useRef<HTMLDivElement>(null),list=useRef<HTMLDivElement>(null),composer=useRef<HTMLDivElement>(null),recorder=useRef<MediaRecorder|null>(null),chunks=useRef<Blob[]>([]),savedRange=useRef<Range|null>(null),stickToBottom=useRef(true),initialScrollDone=useRef(false)
 
  async function load(){
    const r=await fetch("/api/chat",{cache:"no-store"});if(!r.ok)return
@@ -170,7 +170,7 @@ export default function ChatMessages(){
 
    {showPinned&&<div className="border-b border-white/10 bg-black/45 p-3"><div className="mb-2 text-sm font-semibold">Pinned messages</div>{pinned.length?<div className="space-y-1.5">{pinned.map(m=><button key={m.id} onClick={()=>jump(m.id)} className="block w-full rounded-xl bg-white/10 p-2 text-left text-sm">{textFromHtml(m.content).slice(0,120)}</button>)}</div>:<div className="text-sm text-white/40">Nothing pinned yet.</div>}</div>}
 
-   <div ref={list} data-chat-scroll-container="true" onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto px-2 pb-40 pt-32 sm:px-4"><div className="space-y-2.5">
+   <div ref={list} data-chat-scroll-container="true" onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto px-2 pt-32 sm:px-4" style={{paddingBottom:Math.max(composerHeight+8,112)}}><div className="space-y-2.5">
     {messages.map(m=>{
       const own=m.senderId===currentUserId,bubble=m.style?.bubbleColor||(own?pref.bubbleColor:"#27272a"),dotsColor=contrastColor(bubble),match=search?results.some(x=>x.m.id===m.id):false
       return <div id={"msg-"+m.id} data-chat-message="true" key={m.id} className={"flex "+(own?"justify-end":"justify-start")+" "+(match?"rounded-xl ring-1 ring-yellow-300/40":"")}>
@@ -197,7 +197,7 @@ export default function ChatMessages(){
     })}
    </div></div>
 
-   <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-black/65 p-2.5 backdrop-blur-xl">
+   <div ref={composer} className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-black/65 p-2.5 backdrop-blur-xl">
     {reply&&<div className="mb-2 flex items-center gap-2 rounded-xl bg-white/10 p-2 text-xs"><button onClick={()=>jump(reply.id)} className="min-w-0 flex-1 text-left"><b>Replying to {reply.senderName}</b><div className="truncate opacity-55">{textFromHtml(reply.content)}</div></button><button onClick={()=>setReply(null)}>×</button></div>}
     {editing&&<div className="mb-2 flex items-center justify-between rounded-xl bg-pink-500/10 px-3 py-2 text-xs">Editing message<button onClick={()=>{setEditing(null);clearEditor()}}>Cancel</button></div>}
     {showFormat&&<div className="mb-2 rounded-2xl bg-zinc-50 p-2 text-black shadow-xl"><div className="flex flex-wrap gap-1">

@@ -26,10 +26,10 @@ export async function DELETE(){
   const session=await getServerSession(authOptions)
   const email=session?.user?.email
   if(!email)return NextResponse.json({error:"Unauthorized"},{status:401})
-
   const user=await prisma.user.findUnique({where:{email},select:{id:true}})
   if(!user)return NextResponse.json({error:"Account not found"},{status:404})
-
+  const membership=await prisma.homeMember.findUnique({where:{userId:user.id}})
+  if(membership)return NextResponse.json({error:"This account belongs to a Home. Use Delete Home & Account so both members must approve the permanent deletion."},{status:409})
   await prisma.user.delete({where:{id:user.id}})
   return NextResponse.json({ok:true})
 }

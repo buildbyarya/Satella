@@ -6,7 +6,7 @@ type Message = {
   id:string; senderId:string; senderName:string; content:string
   kind:"TEXT"|"IMAGE"|"VOICE"|"VIDEO"; pinned:boolean; editedAt:string|null
   createdAt:string; replyTo:any; media:any; reactions:Record<string,{count:number;mine:boolean}>
-  seenByPartner:boolean
+  seenByPartner:boolean; seenAt:string|null
   style:{fontSize:number;textColor:string;fontFamily:string;bubbleColor:string}
 }
 type Preference={fontSize:number;textColor:string;fontFamily:string;bubbleColor:string}
@@ -24,13 +24,13 @@ export default function ChatMessages(){
  const [setting,setSetting]=useState<Setting|null>(null)
  const [pref,setPref]=useState<Preference>({fontSize:16,textColor:"#fff",fontFamily:"system-ui",bubbleColor:"#7c3aed"})
  const [reply,setReply]=useState<Message|null>(null),[editing,setEditing]=useState<Message|null>(null)
- const [searchDraft,setSearchDraft]=useState(""),[search,setSearch]=useState(""),[searchIndex,setSearchIndex]=useState(0)
+ const [searchDraft,setSearchDraft]=useState(""),[search,setSearch]=useState(""),[searchIndex,setSearchIndex]=useState(0),[showSearch,setShowSearch]=useState(false)
  const [showPinned,setShowPinned]=useState(false),[showSettings,setShowSettings]=useState(false),[showFormat,setShowFormat]=useState(false)
  const [sending,setSending]=useState(false),[recording,setRecording]=useState(false),[menuId,setMenuId]=useState<string|null>(null)
  const [openingMedia,setOpeningMedia]=useState<string|null>(null)
  const [mediaView,setMediaView]=useState<{kind:string;data:string;mime:string}|null>(null)
  const [backgroundImage,setBackgroundImage]=useState(""),[sharedSaving,setSharedSaving]=useState(false)
- const editor=useRef<HTMLDivElement>(null),list=useRef<HTMLDivElement>(null),recorder=useRef<MediaRecorder|null>(null),chunks=useRef<Blob[]>([]),savedRange=useRef<Range|null>(null)
+ const editor=useRef<HTMLDivElement>(null),list=useRef<HTMLDivElement>(null),recorder=useRef<MediaRecorder|null>(null),chunks=useRef<Blob[]>([]),savedRange=useRef<Range|null>(null),stickToBottom=useRef(true)
 
  async function load(){
    const r=await fetch("/api/chat",{cache:"no-store"});if(!r.ok)return
@@ -38,8 +38,11 @@ export default function ChatMessages(){
    if(d.preference)setPref(d.preference);if(d.setting?.backgroundImage)setBackgroundImage(d.setting.backgroundImage)
  }
  useEffect(()=>{void load();const t=setInterval(()=>void load(),2200);return()=>clearInterval(t)},[])
- useEffect(()=>{void fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"read"})})},[messages.length])
- useEffect(()=>{if(list.current&&!search)list.current.scrollTop=list.current.scrollHeight},[messages.length,search])
+ useEffect(()=>{
+   const node=list.current
+   if(!node)return
+   if(stickToBottom.current&&!search){node.scrollTop=node.scrollHeight;void fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"read",source:"chat-bottom"})})}
+ },[messages.length,search])
 
  const results=useMemo(()=>{
    const q=search.trim().toLowerCase();if(!q)return []
@@ -47,21 +50,28 @@ export default function ChatMessages(){
  },[messages,search])
  useEffect(()=>{if(!search){setSearchIndex(0);return}if(results.length)setSearchIndex(results.length-1)},[search,results.length])
 
+ function handleScroll(){
+   const node=list.current;if(!node)return
+   const distance=node.scrollHeight-node.scrollTop-node.clientHeight
+   stickToBottom.current=distance<80
+   if(distance<80)void fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"read",source:"chat-bottom"})})
+ }
+ function scrollToBottom(){const node=list.current;if(node){stickToBottom.current=true;node.scrollTo({top:node.scrollHeight,behavior:"smooth"})}}
  function performSearch(){setSearch(searchDraft.trim());setSearchIndex(0)}
-function jump(id:string){const el=document.getElementById("msg-"+id);el?.scrollIntoView({behavior:"smooth",block:"center"});el?.classList.add("ring-2","ring-pink-300");setTimeout(()=>el?.classList.remove("ring-2","ring-pink-300"),1100)}
+ function jump(id:string){const el=document.getElementById("msg-"+id);el?.scrollIntoView({behavior:"smooth",block:"center"});el?.classList.add("ring-2","ring-pink-300");setTimeout(()=>el?.classList.remove("ring-2","ring-pink-300"),1100)}
  function jumpSearch(delta:number){if(!results.length)return;const next=(searchIndex+delta+results.length)%results.length;setSearchIndex(next);jump(results[next].m.id)}
  function rememberSelection(){
   const root=editor.current,sel=window.getSelection()
   if(!root||!sel||!sel.rangeCount)return
   const range=sel.getRangeAt(0)
   if(root.contains(range.commonAncestorContainer))savedRange.current=range.cloneRange()
-}
-function restoreSelection(){
+ }
+ function restoreSelection(){
   const root=editor.current,sel=window.getSelection(),range=savedRange.current
   if(!root||!sel||!range||!root.contains(range.commonAncestorContainer))return false
   sel.removeAllRanges();sel.addRange(range);return true
-}
-function bakeCurrentTextStyle(){
+ }
+ function bakeCurrentTextStyle(){
   const root=editor.current;if(!root)return
   const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT)
   const nodes:Array<Text>=[]
@@ -87,12 +97,11 @@ function bakeCurrentTextStyle(){
     text.parentNode?.insertBefore(span,text)
     span.appendChild(text)
   }
-}
-function applyInlineStyle(property:"fontSize"|"color"|"fontFamily",value:string){
+ }
+ function applyInlineStyle(property:"fontSize"|"color"|"fontFamily",value:string){
   const root=editor.current;if(!root)return;root.focus();restoreSelection()
   const sel=window.getSelection();if(!sel||!sel.rangeCount)return
-  bakeCurrentTextStyle()
-  restoreSelection()
+  bakeCurrentTextStyle();restoreSelection()
   const nextSel=window.getSelection();if(!nextSel||!nextSel.rangeCount)return
   const range=nextSel.getRangeAt(0);if(!root.contains(range.commonAncestorContainer))return
   const span=document.createElement("span");span.setAttribute("data-satella-style","1");span.style[property]=value
@@ -104,26 +113,26 @@ function applyInlineStyle(property:"fontSize"|"color"|"fontFamily",value:string)
     const next=document.createRange();next.setStartAfter(span);next.collapse(true);nextSel.removeAllRanges();nextSel.addRange(next)
   }
   savedRange.current=nextSel.getRangeAt(0).cloneRange()
-}
-function command(name:string,value?:string){editor.current?.focus();document.execCommand(name,false,value)}
+ }
+ function command(name:string,value?:string){editor.current?.focus();document.execCommand(name,false,value)}
  function clearEditor(){if(editor.current)editor.current.innerHTML=""}
 
  async function send(){
    if(!editor.current)return;const content=editor.current.innerHTML.trim().replace(/\\u200b/g,"");if(!textFromHtml(content).trim())return
    setSending(true);await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:editing?"edit":"send",messageId:editing?.id,content,replyToId:reply?.id})})
-   clearEditor();setReply(null);setEditing(null);setSending(false);void load()
+   clearEditor();setReply(null);setEditing(null);setSending(false);stickToBottom.current=true;await load();requestAnimationFrame(()=>scrollToBottom())
  }
  async function fileSend(file:File){
    if(!(file.type.startsWith("image/")||file.type.startsWith("video/")))return
    if(file.size>4_500_000){alert("Please choose a media file under 4.5 MB.");return}
-   const reader=new FileReader();reader.onload=async()=>{await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"send",kind:file.type.startsWith("video/")?"VIDEO":"IMAGE",content:String(reader.result),mime:file.type})});void load()};reader.readAsDataURL(file)
+   const reader=new FileReader();reader.onload=async()=>{await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"send",kind:file.type.startsWith("video/")?"VIDEO":"IMAGE",content:String(reader.result),mime:file.type})});stickToBottom.current=true;await load();requestAnimationFrame(()=>scrollToBottom())};reader.readAsDataURL(file)
  }
  async function startVoice(){
    if(recording){recorder.current?.stop();setRecording(false);return}
    try{
     const stream=await navigator.mediaDevices.getUserMedia({audio:true});const r=new MediaRecorder(stream);chunks.current=[];recorder.current=r
     r.ondataavailable=e=>{if(e.data.size)chunks.current.push(e.data)}
-    r.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());const blob=new Blob(chunks.current,{type:r.mimeType||"audio/webm"});if(blob.size>4_500_000){alert("Voice message is too large.");return};const reader=new FileReader();reader.onload=async()=>{await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"send",kind:"VOICE",content:String(reader.result),mime:blob.type})});void load()};reader.readAsDataURL(blob)}
+    r.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());const blob=new Blob(chunks.current,{type:r.mimeType||"audio/webm"});if(blob.size>4_500_000){alert("Voice message is too large.");return};const reader=new FileReader();reader.onload=async()=>{await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"send",kind:"VOICE",content:String(reader.result),mime:blob.type})});stickToBottom.current=true;await load();requestAnimationFrame(()=>scrollToBottom())};reader.readAsDataURL(blob)}
     r.start();setRecording(true)
    }catch{alert("Microphone permission is required for voice messages.")}
  }
@@ -139,11 +148,7 @@ function command(name:string,value?:string){editor.current?.focus();document.exe
  }
  async function act(action:string,id:string,extra:any={}){await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,messageId:id,...extra})});setMenuId(null);void load()}
  async function saveSharedBackground(){setSharedSaving(true);await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"shared-settings",backgroundImage:backgroundImage||null})});setSharedSaving(false);setShowSettings(false);void load()}
- async function saveStyle(next:Partial<Preference>){
-  const value={...pref,...next};
-  setPref(value);
-  await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"style",...value})});
- }
+ async function saveStyle(next:Partial<Preference>){const value={...pref,...next};setPref(value);await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"style",...value})})}
 
  const pinned=useMemo(()=>messages.filter(m=>m.pinned),[messages])
  const pageBackground=setting?.backgroundImage?{backgroundImage:"url("+setting.backgroundImage+")",backgroundSize:"cover",backgroundPosition:"center"}:{background:setting?.background||"linear-gradient(135deg,#160b2e,#050505,#2a0a22)"}
@@ -153,20 +158,19 @@ function command(name:string,value?:string){editor.current?.focus();document.exe
    <header className="fixed left-0 right-0 top-12 z-40 border-b border-white/10 bg-black/70 px-3 py-2 backdrop-blur-xl">
     <div className="flex items-center gap-2">
      <a href="/home" className="rounded-xl bg-white/10 px-3 py-2">‹</a><div className="min-w-0 flex-1"><div className="font-bold">💬 Our Chat</div><div className="text-[11px] text-white/45">Shared space</div></div>
-     
-     <button onClick={()=>setShowPinned(v=>!v)} className="rounded-xl bg-white/10 px-2.5 py-2">📌</button><button onClick={()=>setShowSettings(true)} className="rounded-xl bg-white/10 px-2.5 py-2">🎨</button>
+     <button onClick={()=>setShowSearch(v=>!v)} className="rounded-xl bg-white/10 px-2.5 py-2" aria-label="Search chat">🔎</button><button onClick={()=>setShowPinned(v=>!v)} className="rounded-xl bg-white/10 px-2.5 py-2">📌</button><button onClick={()=>setShowSettings(true)} className="rounded-xl bg-white/10 px-2.5 py-2">🎨</button>
     </div>
-    <div className="mt-2 flex gap-1.5">
-      <input value={searchDraft} onChange={e=>setSearchDraft(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")performSearch()}} placeholder="Search chat…" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 text-sm outline-none"/>
+    {showSearch&&<div className="mt-2 flex gap-1.5">
+      <input autoFocus value={searchDraft} onChange={e=>setSearchDraft(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")performSearch()}} placeholder="Search chat…" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 text-sm outline-none"/>
       <button onClick={()=>jumpSearch(-1)} disabled={!results.length} className="rounded-xl bg-white/10 px-3 disabled:opacity-30" aria-label="Older search result">↑</button>
       <button onClick={()=>jumpSearch(1)} disabled={!results.length} className="rounded-xl bg-white/10 px-3 disabled:opacity-30" aria-label="Newer search result">↓</button>
-      <button onClick={performSearch} className="rounded-xl bg-white/10 px-3" aria-label="Search">🔎</button>
-    </div>{search&&<div className="mt-1 px-1 text-[10px] text-white/45">{results.length?`Match ${searchIndex+1} of ${results.length}`:`No text messages found`}</div>}
+      <button onClick={()=>{setShowSearch(false);setSearch("");setSearchDraft("")}} className="rounded-xl bg-white/10 px-3" aria-label="Close search">×</button>
+    </div>}{showSearch&&search&&<div className="mt-1 px-1 text-[10px] text-white/45">{results.length?`Match ${searchIndex+1} of ${results.length}`:`No text messages found`}</div>}
    </header>
 
    {showPinned&&<div className="border-b border-white/10 bg-black/45 p-3"><div className="mb-2 text-sm font-semibold">Pinned messages</div>{pinned.length?<div className="space-y-1.5">{pinned.map(m=><button key={m.id} onClick={()=>jump(m.id)} className="block w-full rounded-xl bg-white/10 p-2 text-left text-sm">{textFromHtml(m.content).slice(0,120)}</button>)}</div>:<div className="text-sm text-white/40">Nothing pinned yet.</div>}</div>}
 
-   <div ref={list} className="flex-1 overflow-y-auto px-2 pb-3 pt-40 sm:px-4"><div className="space-y-2.5">
+   <div ref={list} onScroll={handleScroll} className="flex-1 overflow-y-auto px-2 pb-3 pt-32 sm:px-4"><div className="space-y-2.5">
     {messages.map(m=>{
       const own=m.senderId===currentUserId,bubble=m.style?.bubbleColor||(own?pref.bubbleColor:"#27272a"),dotsColor=contrastColor(bubble),match=search?results.some(x=>x.m.id===m.id):false
       return <div id={"msg-"+m.id} key={m.id} className={"flex "+(own?"justify-end":"justify-start")+" "+(match?"rounded-xl ring-1 ring-yellow-300/40":"")}>
@@ -175,9 +179,9 @@ function command(name:string,value?:string){editor.current?.focus();document.exe
         <div className="relative rounded-2xl px-3 py-2 shadow-lg" style={{background:bubble,color:m.style?.textColor||"#fff",fontSize:m.style?.fontSize||16,fontFamily:m.style?.fontFamily||"system-ui"}}>
          {m.replyTo&&<button onClick={()=>jump(m.replyTo.id)} className="mb-1.5 w-full rounded-xl border-l-2 border-white/45 bg-black/20 px-2 py-1.5 text-left text-xs"><b>{m.replyTo.senderName}</b><div className="truncate opacity-65">{textFromHtml(m.replyTo.content)}</div></button>}
          {m.kind==="TEXT"?<div className="break-words whitespace-pre-wrap [&_a]:underline" dangerouslySetInnerHTML={{__html:m.content}}/>:<button onClick={()=>void openMedia(m)} disabled={openingMedia===m.id||m.media?.remaining<=0} className="flex min-w-44 items-center gap-2 text-left disabled:opacity-50"><span className="text-xl">{health(m.media?.remaining||0)}</span><span><b>{m.kind==="IMAGE"?"🖼️ Temporary image":m.kind==="VIDEO"?"🎬 Temporary video":"🎙️ Voice message"}</b><span className="block text-xs opacity-65">{openingMedia===m.id?"Opening…":m.media?.remaining?m.media.remaining+" views left":"Used / expired"}</span></span></button>}
-         <div className="mt-1 flex items-center justify-end gap-1 text-[9px] opacity-55">{formatTime(m.createdAt)}{m.editedAt?" · edited":""}{own?" · "+(m.seenByPartner?"Seen":"Sent"):""}</div>
+         <div className="mt-1 flex items-center justify-end gap-1 text-[9px] opacity-55">{formatTime(m.createdAt)}{m.editedAt?" · edited":""}{own?(m.seenByPartner&&m.seenAt?" · Seen "+formatTime(m.seenAt):" · Sent"):""}</div>
          <button onClick={()=>setMenuId(menuId===m.id?null:m.id)} aria-label="Message actions" className="absolute -top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-black/80 shadow" style={{color:dotsColor}}>⋯</button>
-         {menuId===m.id&&<div className={"absolute z-20 top-6 right-0 min-w-40 rounded-xl border border-white/10 bg-zinc-950 p-1 shadow-2xl"}>
+         {menuId===m.id&&<div className="absolute z-20 top-6 right-0 min-w-40 rounded-xl border border-white/10 bg-zinc-950 p-1 shadow-2xl">
           <button onClick={()=>{setReply(m);setMenuId(null)}} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-white/10">↩ Reply</button>
           <button onClick={()=>void act("pin",m.id)} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-white/10">{m.pinned?"📌 Unpin":"📌 Pin"}</button>
           {m.kind==="TEXT"&&<button onClick={()=>{setEditing(m);if(editor.current)editor.current.innerHTML=m.content;setMenuId(null)}} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-white/10">✏️ Edit</button>}
@@ -208,10 +212,7 @@ function command(name:string,value?:string){editor.current?.focus();document.exe
         <select value={pref.fontFamily} onMouseDown={rememberSelection} onChange={e=>{void saveStyle({fontFamily:e.target.value});applyInlineStyle("fontFamily",e.target.value)}} className="max-w-24 bg-transparent px-1 py-1 text-sm"><option value="system-ui">System</option><option value="Georgia">Serif</option><option value="monospace">Mono</option><option value="Arial">Arial</option><option value="Trebuchet MS">Trebuchet</option></select>
       </label>
       <label className="flex flex-col gap-1 rounded-lg bg-black/5 px-2 py-1.5 text-xs">Bubble
-        <span className="flex items-center gap-1">
-          <input type="color" value={pref.bubbleColor} onChange={e=>void saveStyle({bubbleColor:e.target.value})} title="Message bubble color" className="h-7 w-8 rounded"/>
-          <span>Color</span>
-        </span>
+        <span className="flex items-center gap-1"><input type="color" value={pref.bubbleColor} onChange={e=>void saveStyle({bubbleColor:e.target.value})} title="Message bubble color" className="h-7 w-8 rounded"/><span>Color</span></span>
         <button type="button" onClick={()=>void saveStyle({fontSize:16,textColor:"#fff",bubbleColor:"#7c3aed"})} className="rounded-md bg-black/10 px-2 py-1 text-[11px] hover:bg-black/15">↩ Default style</button>
       </label>
     </div><p className="mt-1 px-1 text-[10px] text-black/45">Text size/color/font apply to the text you type next. Bubble color applies to your whole message bubble. Your partner can choose their own.</p></div>}

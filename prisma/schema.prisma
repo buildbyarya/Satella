@@ -12,7 +12,7 @@ model User {
   name          String?
   email         String    @unique
   emailVerified DateTime?
-  image         String?    @db.Text
+  image         String?   @db.Text
   nickname      String?
   gender        String?
   createdAt     DateTime  @default(now())
@@ -35,6 +35,8 @@ model User {
   chatReads            ChatRead[]
   chatReactions        ChatReaction[]
   chatPreference       ChatPreference?
+  deletionRequestsSent     HomeDeletionRequest[] @relation("HomeDeletionRequester")
+  deletionRequestsReceived HomeDeletionRequest[] @relation("HomeDeletionPartner")
 }
 
 model Home {
@@ -56,6 +58,7 @@ model Home {
   chatPreferences ChatPreference[]
   calendarEvents CalendarEvent[]
   drawingSwapGame DrawingSwapGame?
+  deletionRequests HomeDeletionRequest[]
 }
 
 model PendingHome {
@@ -189,7 +192,6 @@ model QuickNote {
   @@unique([homeId, senderId])
   @@index([recipientId])
 }
-
 
 enum ChatMessageKind {
   TEXT
@@ -327,6 +329,25 @@ model DrawingSwapGame {
   home Home @relation(fields: [homeId], references: [id], onDelete: Cascade)
 }
 
+model HomeDeletionRequest {
+  id              String   @id @default(cuid())
+  homeId          String
+  requesterId     String
+  partnerId       String
+  partnerDecision String   @default("PENDING")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  respondedAt     DateTime?
+
+  home      Home @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  requester User @relation("HomeDeletionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  partner   User @relation("HomeDeletionPartner", fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([homeId])
+  @@index([partnerId, partnerDecision])
+  @@index([requesterId])
+}
+
 model Account {
   id                String   @id @default(cuid())
   userId            String
@@ -369,7 +390,7 @@ model WatchRoom {
   videoId      String
   position     Float    @default(0)
   playing      Boolean  @default(false)
-  volume       Int     @default(100)
+  volume       Int      @default(100)
   playbackRate Float    @default(1)
   version      Int      @default(0)
   lastActionAt DateTime @default(now())

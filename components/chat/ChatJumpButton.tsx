@@ -8,6 +8,7 @@ function getList() {
 
 export default function ChatJumpButton() {
   const [unreadCount, setUnreadCount] = useState(0)
+  const [farFromBottom, setFarFromBottom] = useState(false)
   const busy = useRef(false)
 
   async function markRead() {
@@ -28,8 +29,10 @@ export default function ChatJumpButton() {
   async function refresh() {
     const list = getList()
     if (list) {
-      const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 24
-      if (atBottom) {
+      const distance = list.scrollHeight - list.scrollTop - list.clientHeight
+      const far = distance > 650
+      setFarFromBottom(far)
+      if (distance < 24) {
         await markRead()
         return
       }
@@ -43,15 +46,17 @@ export default function ChatJumpButton() {
   }
 
   useEffect(() => {
-    const timer = window.setInterval(() => void refresh(), 1500)
+    const timer = window.setInterval(() => void refresh(), 1000)
     const attach = window.setTimeout(() => {
       const list = getList()
       if (!list) return
       const onScroll = () => {
-        const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 24
-        if (atBottom) void markRead()
+        const distance = list.scrollHeight - list.scrollTop - list.clientHeight
+        setFarFromBottom(distance > 650)
+        if (distance < 24) void markRead()
       }
       list.addEventListener("scroll", onScroll, { passive: true })
+      onScroll()
       return () => list.removeEventListener("scroll", onScroll)
     }, 300)
 
@@ -62,7 +67,7 @@ export default function ChatJumpButton() {
     }
   }, [])
 
-  if (unreadCount <= 0) return null
+  if (!farFromBottom) return null
 
   return (
     <button
@@ -70,15 +75,18 @@ export default function ChatJumpButton() {
         const list = getList()
         if (list) list.scrollTo({ top: list.scrollHeight, behavior: "smooth" })
         void markRead()
+        setFarFromBottom(false)
       }}
       className="fixed bottom-24 right-4 z-[45] flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-zinc-950/90 text-xl shadow-2xl backdrop-blur-xl transition hover:scale-105 active:scale-95"
-      aria-label={`Go to latest message. ${unreadCount} unread message${unreadCount === 1 ? "" : "s"}`}
+      aria-label="Go to latest message"
       title="Go to latest message"
     >
       ↓
-      <span className="absolute -right-0.5 -top-0.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow">
-        {unreadCount > 9 ? "9+" : unreadCount}
-      </span>
+      {unreadCount > 0 && (
+        <span className="absolute -right-0.5 -top-0.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow">
+          {unreadCount > 9 ? "9+" : unreadCount}
+        </span>
+      )}
     </button>
   )
 }

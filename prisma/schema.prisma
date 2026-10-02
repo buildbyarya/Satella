@@ -343,7 +343,7 @@ model HomeDeletionRequest {
   requester User @relation("HomeDeletionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
   partner   User @relation("HomeDeletionPartner", fields: [partnerId], references: [id], onDelete: Cascade)
 
-  @@index([homeId])
+  @@unique([homeId])
   @@index([partnerId, partnerDecision])
   @@index([requesterId])
 }

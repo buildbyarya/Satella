@@ -30,7 +30,7 @@ export default function ChatJumpButton() {
     const list = getList()
     if (list) {
       const distance = list.scrollHeight - list.scrollTop - list.clientHeight
-      const far = distance > 650
+      const far = distance > 450
       setFarFromBottom(far)
       if (distance < 24) {
         await markRead()
@@ -52,7 +52,7 @@ export default function ChatJumpButton() {
       if (!list) return
       const onScroll = () => {
         const distance = list.scrollHeight - list.scrollTop - list.clientHeight
-        setFarFromBottom(distance > 650)
+        setFarFromBottom(distance > 450)
         if (distance < 24) void markRead()
       }
       list.addEventListener("scroll", onScroll, { passive: true })
@@ -83,9 +83,7 @@ export default function ChatJumpButton() {
     >
       ↓
       {unreadCount > 0 && (
-        <span className="absolute -right-0.5 -top-0.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow">
-          {unreadCount > 9 ? "9+" : unreadCount}
-        </span>
+        <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-red-500 shadow" aria-label="Unread messages" />
       )}
     </button>
   )

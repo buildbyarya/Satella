@@ -48,8 +48,14 @@ export async function POST(req:Request){
  if(!partner)return NextResponse.json({error:"Partner not found."},{status:400})
 
  if(body.action==="request"){
-  const existing=await prisma.homeDeletionRequest.findFirst({where:{homeId:member.homeId}})
-  if(existing)return NextResponse.json({requestId:existing.id,existing:true})
+  const existing=await prisma.homeDeletionRequest.findUnique({where:{homeId:member.homeId}})
+  if(existing){
+   return NextResponse.json({
+    requestId:existing.id,
+    existing:true,
+    decision:existing.partnerDecision,
+   })
+  }
   const created=await prisma.homeDeletionRequest.create({data:{homeId:member.homeId,requesterId:user.id,partnerId:partner.userId}})
   return NextResponse.json({ok:true,requestId:created.id})
  }
@@ -69,7 +75,7 @@ export async function POST(req:Request){
  if(body.action==="final-confirm"){
   const isPartner=deletion.partnerId===user.id
   const isRequester=deletion.requesterId===user.id
-  const requesterEligible=isRequester&&deletion.partnerDecision!=="YES"&&inactiveEligible(deletion,deletion.partner)
+  const requesterEligible=isRequester&&deletion.partnerDecision==="PENDING"&&inactiveEligible(deletion,deletion.partner)
   const partnerEligible=isPartner&&deletion.partnerDecision==="YES"
   if(!requesterEligible&&!partnerEligible)return NextResponse.json({error:"This Home cannot be deleted yet. Your partner must agree, or remain inactive for three days after the request."},{status:403})
   const userIds=[deletion.requesterId,deletion.partnerId]

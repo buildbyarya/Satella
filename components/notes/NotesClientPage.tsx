@@ -14,6 +14,8 @@ type NoteData = {
   backgroundImage?: string | null
   canEdit: boolean
   locked: boolean
+  updatedAt?: string | null
+  updatedBy?: string | null
 }
 
 export default function NotesClientPage({ mode, title }: { mode: Mode; title: string }) {
@@ -52,13 +54,18 @@ export default function NotesClientPage({ mode, title }: { mode: Mode; title: st
   }
 
   return (
-    <>
+    <div className="w-full">
       <div className="mt-5 flex items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-pink-200/50">
             {mode === "other" ? "Read only" : mode === "shared" ? "Shared notebook" : "Your notebook"}
           </p>
           <h2 className="mt-1 text-xl font-bold">{title}</h2>
+          {mode === "shared" && data.updatedAt ? (
+            <p className="mt-1 text-xs text-white/45">
+              Last edited by <span className="font-medium text-white/70">{data.updatedBy || "User"}</span> · {new Date(data.updatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+            </p>
+          ) : null}
         </div>
         {data.canEdit ? (
           <NotesSettings
@@ -78,7 +85,8 @@ export default function NotesClientPage({ mode, title }: { mode: Mode; title: st
         canEdit={data.canEdit}
         locked={data.locked}
         backgroundImage={data.backgroundImage}
+        onSaved={() => void load()}
       />
-    </>
+    </div>
   )
 }

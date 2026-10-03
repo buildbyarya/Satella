@@ -35,7 +35,7 @@ export default function AccountSettingsPage(){
  }
  const req=home?.request
  const hasActiveRequest=Boolean(req)
- return <main className="min-h-screen bg-gradient-to-br from-purple-950 via-black to-pink-950 p-6 text-white"><div className="mx-auto max-w-md"><PageHeader title="⚙ Account Settings" backHref="/home"/>
+ return <main className="min-h-screen bg-gradient-to-br from-purple-950 via-black to-pink-950 p-6 text-white"><div className="mx-auto max-w-md"><PageHeader title="⚙ Account Settings" backHref="/profile"/>
   <div className="mt-6 rounded-3xl bg-white/10 p-6">
    <div className="flex flex-col items-center"><div className="h-28 w-28 overflow-hidden rounded-full border border-white/15 bg-white/10">{image?<img src={image} alt="Profile" className="h-full w-full object-cover"/>:<div className="flex h-full items-center justify-center text-4xl">👤</div>}</div>
     <label className="mt-4 cursor-pointer rounded-xl bg-pink-500/25 px-4 py-2 font-semibold">{saving?"Saving…":"📷 Choose profile picture"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)void upload(f);e.currentTarget.value=""}}/></label>

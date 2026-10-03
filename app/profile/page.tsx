@@ -25,7 +25,7 @@ export default async function ProfilePage() {
             <h2 className="mt-4 text-2xl font-bold">{user.nickname || user.name || "Your profile"}</h2>
             <p className="mt-1 text-sm text-white/50">{user.email}</p>
           </div>
-          <ProfileActions nickname={user.nickname || ""} image={user.image || ""} />
+          <ProfileActions nickname={user.nickname || ""} />
           <Link href="/account-settings" className="block rounded-2xl bg-white/10 p-5 transition hover:bg-white/20 active:scale-95">
             ⚙ Account Settings
           </Link>

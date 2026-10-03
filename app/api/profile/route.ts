@@ -8,15 +8,16 @@ export async function PATCH(request: Request) {
   if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await request.json()
+  if (Object.prototype.hasOwnProperty.call(body, "image")) {
+    return NextResponse.json({ error: "Profile pictures are upload-only. Use Account Settings to upload an image." }, { status: 400 })
+  }
+
   const nickname = typeof body.nickname === "string" ? body.nickname.trim() : undefined
-  const image = typeof body.image === "string" ? body.image.trim() : undefined
+  if (nickname === undefined) return NextResponse.json({ error: "Nothing to update." }, { status: 400 })
 
   const user = await prisma.user.update({
     where: { email: session.user.email },
-    data: {
-      ...(nickname !== undefined ? { nickname: nickname || null } : {}),
-      ...(image !== undefined ? { image: image || null } : {}),
-    },
+    data: { nickname: nickname || null },
     select: { nickname: true, image: true },
   })
 

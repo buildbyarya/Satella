@@ -6,7 +6,6 @@ import {prisma} from "@/lib/prisma"
 export async function GET(){
  const s=await getServerSession(authOptions);if(!s?.user?.email)return NextResponse.json({notifications:[],events:[]},{status:401})
  const u=await prisma.user.findUnique({where:{email:s.user.email}});if(!u)return NextResponse.json({notifications:[],events:[]},{status:401})
- await prisma.user.update({where:{id:u.id},data:{updatedAt:new Date()}})
  const since=new Date(Date.now()-120000)
  const home=await prisma.homeMember.findUnique({where:{userId:u.id},include:{home:{include:{members:true}}}})
  const partner=home?.home.members.find(m=>m.userId!==u.id)
@@ -31,19 +30,19 @@ export async function GET(){
  if(home&&partner){
   const lastReadAt=chatRead?.lastReadAt??new Date(0)
   const unread=await prisma.chatMessage.findMany({where:{homeId:home.homeId,senderId:partner.userId,createdAt:{gt:lastReadAt}},orderBy:{createdAt:"desc"},take:50,select:{id:true,createdAt:true}})
-  if(unread.length)chatUnread=[{id:"chat-unread-"+unread[0].id,text:(partner.nickname||"Your partner")+` sent ${unread.length===1?"a message":unread.length+" messages"} in Chat`,kind:"chat",chatMessageId:unread[0].id,createdAt:unread[0].createdAt.toISOString()}]
+  if(unread.length)chatUnread=[{id:"chat-unread-"+unread[0].id,text:(partner.nickname||"Your partner")+" sent "+(unread.length===1?"a message":unread.length+" messages")+" in Chat",kind:"chat",chatMessageId:unread[0].id,createdAt:unread[0].createdAt.toISOString()}]
  }
  const deletionEvents:any[]=[]
  if(deletionForPartner){
   const requesterName=deletionForPartner.requester.nickname||deletionForPartner.requester.name||"Your partner"
-  if(deletionForPartner.partnerDecision==="YES") deletionEvents.push({id:"home-delete-final-"+deletionForPartner.id,text:"This is irreversible. All Home data and both Satella accounts will be permanently deleted.",kind:"home-delete",phase:"final",requestId:deletionForPartner.id,createdAt:deletionForPartner.createdAt.toISOString()})
-  else deletionEvents.push({id:"home-delete-request-"+deletionForPartner.id,text:requesterName+" wants to leave this Home. Do you want to leave too and permanently delete the shared Home?",kind:"home-delete",phase:"request",requestId:deletionForPartner.id,danger:deletionForPartner.partnerDecision==="NO",createdAt:deletionForPartner.createdAt.toISOString()})
+  if(deletionForPartner.partnerDecision==="YES") deletionEvents.push({id:"home-delete-final-"+deletionForPartner.id,text:"This is irreversible. All Home data and both Satella accounts will be permanently deleted.",type:"home-delete",kind:"home-delete",phase:"final",requestId:deletionForPartner.id,createdAt:deletionForPartner.createdAt.toISOString()})
+  else deletionEvents.push({id:"home-delete-request-"+deletionForPartner.id,text:requesterName+" wants to leave this Home. Do you want to leave too and permanently delete the shared Home?",type:"home-delete",kind:"home-delete",phase:"request",requestId:deletionForPartner.id,danger:deletionForPartner.partnerDecision==="NO",createdAt:deletionForPartner.createdAt.toISOString()})
  }
  if(deletionForRequester&&deletionForRequester.partnerDecision==="NO") deletionEvents.push({id:"home-delete-declined-"+deletionForRequester.id,text:(deletionForRequester.partner.nickname||deletionForRequester.partner.name||"Your partner")+" has not agreed to delete the Home. The request remains pending.",kind:"home-delete-status",phase:"declined",requestId:deletionForRequester.id,danger:true,createdAt:deletionForRequester.createdAt.toISOString()})
  return NextResponse.json({
   notifications:incoming.map(i=>({id:i.id,text:(i.sender.nickname||i.sender.name||"Someone")+" invited you to watch YouTube",customMessage:i.customMessage,createdAt:i.createdAt.toISOString(),expiresAt:i.expiresAt.toISOString()})),
   events:[
-   ...responded.map(i=>({id:(i.status==="ACCEPTED"?"accepted-":"declined-")+i.id,text:(i.recipient.nickname||i.recipient.name||"Your partner")+(i.status==="ACCEPTED"?" accepted your Watch Together invitation. They are watching with you now.":" declined your Watch Together invitation."),kind:i.status==="ACCEPTED"?"accepted":"declined"})),
+   ...responded.map(i=>({id:(i.status==="ACCEPTED"?"accepted-":"declined-")+i.id,text:(i.recipient.nickname||i.recipient.name||"Your partner")+(i.status==="ACCEPTED"?" accepted your Watch Together invitation. They are watching with you now.":" declined your Watch Together invitation."),kind:i.status==="ACCEPTED"?"accepted":"declined"}),
    ...replies.map(i=>({id:"reply-"+i.id+"-"+i.customMessage,text:(i.recipient.nickname||i.recipient.name||"Your partner")+" replied: "+i.customMessage,kind:"reply"})),
    ...chatAfterLeave,
    ...chatUnread,

@@ -15,8 +15,9 @@ async function membership(userId:string){
  return prisma.homeMember.findUnique({where:{userId},include:{home:{include:{members:{include:{user:true}}}}}})
 }
 
-function noResponseForThreeDays(request:any){
- return Date.now()-request.createdAt.getTime()>=THREE_DAYS
+function inactiveEligible(request:any,partner:any){
+ const age=Date.now()-request.createdAt.getTime()
+ return age>=THREE_DAYS && partner.updatedAt.getTime()<=request.createdAt.getTime()
 }
 
 export async function GET(){
@@ -24,22 +25,15 @@ export async function GET(){
  const member=await membership(user.id)
  if(!member)return NextResponse.json({hasHome:false,request:null})
  const partner=member.home.members.find(m=>m.userId!==user.id)
- const request=await prisma.homeDeletionRequest.findUnique({where:{homeId:member.homeId},include:{requester:true,partner:true}})
+ const request=await prisma.homeDeletionRequest.findFirst({where:{homeId:member.homeId},include:{requester:true,partner:true},orderBy:{createdAt:"desc"}})
  if(!request)return NextResponse.json({hasHome:true,homeId:member.homeId,partner:partner?{id:partner.userId,nickname:partner.nickname||partner.user.nickname||partner.user.name}:null,request:null})
- const other=request.requesterId===user.id?request.partner:request.requester
+ const partnerUser=request.requesterId===user.id?request.partner:request.requester
+ const eligible=request.requesterId===user.id?inactiveEligible(request,request.partner):false
  return NextResponse.json({
   hasHome:true,
   homeId:member.homeId,
   partner:partner?{id:partner.userId,nickname:partner.nickname||partner.user.nickname||partner.user.name}:null,
-  request:{
-   id:request.id,
-   role:request.requesterId===user.id?"requester":"partner",
-   decision:request.partnerDecision,
-   createdAt:request.createdAt.toISOString(),
-   respondedAt:request.respondedAt?.toISOString()||null,
-   noResponseForThreeDays:request.requesterId===user.id&&request.partnerDecision==="PENDING"&&noResponseForThreeDays(request),
-   partnerLastUpdatedAt:other.updatedAt.toISOString()
-  }
+  request:{id:request.id,role:request.requesterId===user.id?"requester":"partner",decision:request.partnerDecision,createdAt:request.createdAt.toISOString(),respondedAt:request.respondedAt?.toISOString()||null,inactiveEligible:eligible,partnerLastActiveAt:partnerUser.updatedAt.toISOString()}
  })
 }
 
@@ -81,10 +75,9 @@ export async function POST(req:Request){
  if(body.action==="final-confirm"){
   const isPartner=deletion.partnerId===user.id
   const isRequester=deletion.requesterId===user.id
-  const requesterEligible=isRequester&&deletion.partnerDecision==="PENDING"&&noResponseForThreeDays(deletion)
+  const requesterEligible=isRequester&&deletion.partnerDecision==="PENDING"&&inactiveEligible(deletion,deletion.partner)
   const partnerEligible=isPartner&&deletion.partnerDecision==="YES"
-  if(!requesterEligible&&!partnerEligible)return NextResponse.json({error:"This Home cannot be deleted yet. Your partner must agree, or you must wait three days without a response."},{status:403})
-
+  if(!requesterEligible&&!partnerEligible)return NextResponse.json({error:"This Home cannot be deleted yet. Your partner must agree, or remain inactive for three days after the request."},{status:403})
   const userIds=[deletion.requesterId,deletion.partnerId]
   await prisma.$transaction(async tx=>{
    await tx.home.delete({where:{id:deletion.homeId}})
